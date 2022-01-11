@@ -22,6 +22,7 @@ type concaver struct {
 	flatPointBuffer  []float64
 	rtreePool        *sync.Pool
 }
+
 type Options struct {
 	Seglength                   float64
 	EstimatedRatioConcaveConvex int
