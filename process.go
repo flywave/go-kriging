@@ -4,7 +4,6 @@ import (
 	vec2d "github.com/flywave/go3d/float64/vec2"
 	vec3d "github.com/flywave/go3d/float64/vec3"
 
-	"github.com/flywave/go-cog"
 	"github.com/flywave/go-geo"
 	"github.com/flywave/go-geoid"
 	"github.com/flywave/go-geom"
@@ -48,6 +47,24 @@ type process struct {
 	nodata       string
 	convexHull   FlatPoints
 	bounds       vec2d.Rect
-	src          cog.TileSource
 	output       string
+}
+
+func (p *process) computeConvexHull() {
+
+}
+
+func (p *process) computeKriging() {
+
+}
+
+func (p *process) cacleGrid() *Grid {
+	return nil
+}
+
+func (p *process) writeTiff(grid *Grid) error {
+	return nil
+}
+
+func (p *process) convertHeight() {
 }
