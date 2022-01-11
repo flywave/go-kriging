@@ -66,6 +66,7 @@ func CaclulateGrid(width, height int, georef *geo.GeoReference) *Grid {
 			coords = append(coords, vec3d.T{longitude, latitude, 0})
 		}
 	}
+
 	grid.Coordinates = coords
 	return grid
 }

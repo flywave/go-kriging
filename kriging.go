@@ -62,20 +62,16 @@ func (kri *Kriging) Train(model ModelType, sigma2 float64, alpha float64) (*Krig
 	switch model {
 	case Gaussian:
 		kri.model = krigingKrigingGaussian
-		break
 	case Exponential:
 		kri.model = krigingKrigingExponential
-		break
 	case Spherical:
 		kri.model = krigingKrigingSpherical
-		break
 	}
 
 	var i, j, k, l, n int
 	n = len(kri.pos)
 
-	var distance DistanceList
-	distance = make([][2]float64, (n*n-n)/2)
+	distance := make([][2]float64, (n*n-n)/2)
 
 	i = 0
 	k = 0
@@ -88,7 +84,7 @@ func (kri *Kriging) Train(model ModelType, sigma2 float64, alpha float64) (*Krig
 			k++
 		}
 	}
-	sort.Sort(distance)
+	sort.Sort(DistanceList(distance))
 	kri.Range = distance[(n*n-n)/2-1][0]
 
 	var lags int
@@ -151,13 +147,10 @@ func (kri *Kriging) Train(model ModelType, sigma2 float64, alpha float64) (*Krig
 		switch model {
 		case Gaussian:
 			X[i*2+1] = 1.0 - exp(-(1.0/A)*pow2(lag[i]/kri.Range))
-			break
 		case Exponential:
 			X[i*2+1] = 1.0 - exp(-(1.0/A)*lag[i]/kri.Range)
-			break
 		case Spherical:
 			X[i*2+1] = 1.5*(lag[i]/kri.Range) - 0.5*pow3(lag[i]/kri.Range)
-			break
 		}
 		Y[i] = semi[i]
 	}
