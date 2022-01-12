@@ -11,6 +11,18 @@ import (
 
 func TestInterpolator(t *testing.T) {
 
+	gtiff := cog.Read("./test.tif")
+
+	if gtiff == nil {
+		t.FailNow()
+	}
+
+	bbox := gtiff.GetBounds(0)
+
+	if bbox.Min[0] == 0 {
+		t.FailNow()
+	}
+
 	f, _ := os.Open("./test.json")
 
 	json, _ := ioutil.ReadAll(f)
@@ -32,9 +44,4 @@ func TestInterpolator(t *testing.T) {
 		t.FailNow()
 	}
 
-	gtiff := cog.Read("./out.tif")
-
-	if gtiff == nil {
-		t.FailNow()
-	}
 }
