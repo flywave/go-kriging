@@ -7,14 +7,6 @@ import (
 	vec2d "github.com/flywave/go3d/float64/vec2"
 )
 
-func DegToRad(angle float64) float64 {
-	return angle * math.Pi / 180
-}
-
-func RadToDeg(angle float64) float64 {
-	return angle * 180 / math.Pi
-}
-
 type Rotator struct {
 	Degrees float64
 }
@@ -39,7 +31,7 @@ func (r Rotator) RotateVector(v vec2d.T) vec2d.T {
 }
 
 func (r Rotator) RotationMatrix() (m mat2d.T) {
-	rad := DegToRad(r.Degrees)
+	rad := degToRad(r.Degrees)
 
 	c := math.Cos(rad)
 	s := math.Sin(rad)

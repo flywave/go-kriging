@@ -99,7 +99,7 @@ func (h *Grid) Value(row, column int) float64 {
 	return h.Coordinates[row*h.Width+column][2]
 }
 
-func (h *Grid) GetTileDate() ([]float64, vec3d.Box, geo.Proj) {
+func (h *Grid) GetDate() ([]float64, [2]uint32, vec2d.Rect, geo.Proj) {
 	tiledata := make([]float64, h.Width*h.Height)
 
 	row, col := h.Height, h.Width
@@ -110,5 +110,5 @@ func (h *Grid) GetTileDate() ([]float64, vec3d.Box, geo.Proj) {
 		}
 	}
 
-	return tiledata, h.GetBBox(), h.srs
+	return tiledata, [2]uint32{uint32(h.Width), uint32(h.Height)}, h.GetRect(), h.srs
 }
