@@ -116,3 +116,96 @@ func matrixChol2inv(X []float64, n int) {
 		}
 	}
 }
+
+func matrixSolve(X []float64, n int) bool {
+	var m = n
+	var b = make([]float64, n*n)
+	var indxc = make([]int, n)
+	var indxr = make([]int, n)
+	var ipiv = make([]int, n)
+	var i, icol, irow, j, k, l, ll int
+	var big, dum, pivinv, temp float64
+
+	for i = 0; i < n; i++ {
+		for j = 0; j < n; j++ {
+			if i == j {
+				b[i*n+j] = 1
+			} else {
+				b[i*n+j] = 0
+			}
+		}
+	}
+
+	for j = 0; j < n; j++ {
+		ipiv[j] = 0
+	}
+
+	for i = 0; i < n; i++ {
+		big = 0
+		for j = 0; j < n; j++ {
+			if ipiv[j] != 1 {
+				for k = 0; k < n; k++ {
+					if ipiv[k] == 0 {
+						if math.Abs(X[j*n+k]) >= big {
+							big = math.Abs(X[j*n+k])
+							irow = j
+							icol = k
+						}
+					}
+				}
+			}
+		}
+		ipiv[icol]++
+		if irow != icol {
+			for l = 0; l < n; l++ {
+				temp = X[irow*n+l]
+				X[irow*n+l] = X[icol*n+l]
+				X[icol*n+l] = temp
+			}
+			for l = 0; l < m; l++ {
+				temp = b[irow*n+l]
+				b[irow*n+l] = b[icol*n+l]
+				b[icol*n+l] = temp
+			}
+		}
+		indxr[i] = irow
+		indxc[i] = icol
+
+		if X[icol*n+icol] == 0 {
+			return false
+		} // Singular
+
+		pivinv = 1 / X[icol*n+icol]
+		X[icol*n+icol] = 1
+		for l = 0; l < n; l++ {
+			X[icol*n+l] *= pivinv
+		}
+		for l = 0; l < m; l++ {
+			b[icol*n+l] *= pivinv
+		}
+
+		for ll = 0; ll < n; ll++ {
+			if ll != icol {
+				dum = X[ll*n+icol]
+				X[ll*n+icol] = 0
+				for l = 0; l < n; l++ {
+					X[ll*n+l] -= X[icol*n+l] * dum
+				}
+				for l = 0; l < m; l++ {
+					b[ll*n+l] -= b[icol*n+l] * dum
+				}
+			}
+		}
+	}
+	for l = n - 1; l >= 0; l-- {
+		if indxr[l] != indxc[l] {
+			for k = 0; k < n; k++ {
+				temp = X[k*n+indxr[l]]
+				X[k*n+indxr[l]] = X[k*n+indxc[l]]
+				X[k*n+indxc[l]] = temp
+			}
+		}
+	}
+
+	return true
+}

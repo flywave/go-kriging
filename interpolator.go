@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/flywave/go-cog"
+	"github.com/flywave/go-geom/general"
 
 	vec2d "github.com/flywave/go3d/float64/vec2"
 	vec3d "github.com/flywave/go3d/float64/vec3"
@@ -69,10 +70,11 @@ func (i *HyperbolicInterpolator) Interpolate(southWestHeight, southEastHeight, n
 	return hi_hyperbolic
 }
 
-type Interpolation struct {
+type KrigingInterpolator struct {
 	heightModel  geoid.VerticalDatum
 	heightOffset float64
-	pixelSize    [2]float64
+	pixelSize    *[2]float64
+	filterSize   [3]uint32
 	inputProj    geo.Proj
 	input        *geom.FeatureCollection
 	inputPos     []vec3d.T
@@ -89,17 +91,18 @@ type Interpolation struct {
 type Options struct {
 	HeightModel  geoid.VerticalDatum
 	HeightOffset float64
-	PixelSize    [2]float64
+	PixelSize    *[2]float64
 	InputSrs     *string
 	Input        *geom.FeatureCollection
 	Output       string
 	Background   *string
 	Model        *ModelType
 	Interpolator *string
+	FilterSize   *[3]uint32
 }
 
-func NewInterpolation(opts Options) *Interpolation {
-	inter := &Interpolation{
+func NewKrigingInterpolator(opts Options) *KrigingInterpolator {
+	inter := &KrigingInterpolator{
 		input:        opts.Input,
 		heightModel:  opts.HeightModel,
 		heightOffset: opts.HeightOffset,
@@ -128,77 +131,83 @@ func NewInterpolation(opts Options) *Interpolation {
 		inter.background = cog.Read(*opts.Background)
 	}
 
+	if opts.FilterSize != nil {
+		inter.filterSize = *opts.FilterSize
+	} else {
+		inter.filterSize = [3]uint32{1024, 1024, 512}
+	}
+
 	return inter
 }
 
-func (p *Interpolation) extractPosion() []vec3d.T {
+func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 	ret := make([]vec3d.T, 0, 1000)
 
 	for _, feas := range p.input.Features {
 		g_ := feas.Geometry
 		switch g := g_.(type) {
-		case geom.Point3:
+		case *general.Point:
 			if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 				pos2 := []vec2d.T{{g.X(), g.Y()}}
 				pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-				ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], g.Z()})
+				ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], g.Data()[2]})
 			} else {
-				ret = append(ret, vec3d.T{g.X(), g.Y(), g.Z()})
+				ret = append(ret, vec3d.T{g.X(), g.Y(), g.Data()[2]})
 			}
-		case geom.MultiPoint3:
+		case *general.MultiPoint:
 			for _, pos := range g.Points() {
 				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 					pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Z()})
+					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
 				} else {
-					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Z()})
+					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
 				}
 			}
-		case geom.LineString3:
+		case *general.LineString:
 			for _, pos := range g.Subpoints() {
 				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 					pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Z()})
+					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
 				} else {
-					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Z()})
+					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
 				}
 			}
-		case geom.MultiLine3:
+		case *general.MultiLine:
 			for _, li := range g.Lines() {
 				for _, pos := range li.Subpoints() {
 					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 						pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 						pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Z()})
+						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
 					} else {
-						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Z()})
+						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
 					}
 				}
 			}
-		case geom.Polygon3:
+		case *general.Polygon:
 			for _, sli := range g.Sublines() {
 				for _, pos := range sli.Subpoints() {
 					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 						pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 						pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Z()})
+						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
 					} else {
-						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Z()})
+						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
 					}
 				}
 			}
-		case geom.MultiPolygon3:
+		case *general.MultiPolygon:
 			for _, poly := range g.Polygons() {
 				for _, sli := range poly.Sublines() {
 					for _, pos := range sli.Subpoints() {
 						if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 							pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 							pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-							ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Z()})
+							ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
 						} else {
-							ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Z()})
+							ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
 						}
 					}
 				}
@@ -208,8 +217,30 @@ func (p *Interpolation) extractPosion() []vec3d.T {
 	return ret
 }
 
-func (p *Interpolation) Process() error {
-	p.inputPos = p.extractPosion()
+func (p *KrigingInterpolator) filter(inputPos []vec3d.T) ([]vec3d.T, error) {
+	min, max, _ := MinMaxVec3(inputPos)
+
+	vg := NewVoxelGrid(vec3d.T{(max[0] - min[0]) / float64(p.filterSize[0]), (max[1] - min[1]) / float64(p.filterSize[1]), (max[2] - min[2]) / float64(p.filterSize[2])})
+
+	res, err := vg.Filter(inputPos)
+
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (p *KrigingInterpolator) Process() error {
+	pos := p.extractPosion()
+
+	pos, err := p.filter(pos)
+
+	if err != nil {
+		return err
+	}
+
+	p.inputPos = pos
+
 	p.convertHeight()
 	p.computeConvexHull()
 	p.computeKriging()
@@ -228,27 +259,28 @@ func (p *Interpolation) Process() error {
 
 	src := cog.NewSource(tiledata, &rect, cog.CTLZW)
 
-	return cog.WriteTile(p.output, src, bbox, srs, [2]uint32{512, 512}, nil)
+	return cog.WriteTile(p.output, src, bbox, srs, si, nil)
 }
 
-func (p *Interpolation) computeConvexHull() []vec2d.T {
+func (p *KrigingInterpolator) computeConvexHull() []vec2d.T {
 	p.convexHull = NewConvex(p.inputPos)
 	return p.convexHull.Hull()
 }
 
-func (p *Interpolation) computeKriging() error {
+func (p *KrigingInterpolator) computeKriging() error {
 	p.kriging = New(p.inputPos)
 	_, err := p.kriging.Train(p.model, 0, 100)
 	return err
 }
 
-func (p *Interpolation) cacleGrid() *Grid {
+func (p *KrigingInterpolator) cacleGrid() *Grid {
 	if p.convexHull == nil {
 		return nil
 	}
 	var width, height int
 	if p.background != nil {
-		p.pixelSize = p.background.GetPixelSize(0)
+		ps := p.background.GetPixelSize(0)
+		p.pixelSize = &ps
 		p.bounds = p.background.GetBounds(0)
 		si := p.background.GetSize(0)
 		width, height = int(si[0]), int(si[1])
@@ -261,13 +293,27 @@ func (p *Interpolation) cacleGrid() *Grid {
 			p.bounds = proj.TransformRectTo(epsg4326, p.bounds, 16)
 		}
 	} else {
+		if p.pixelSize == nil {
+			conf := geo.DefaultTileGridOptions()
+			conf[geo.TILEGRID_SRS] = epsg4326
+			conf[geo.TILEGRID_RES_FACTOR] = 2.0
+			conf[geo.TILEGRID_TILE_SIZE] = []uint32{512, 512}
+			conf[geo.TILEGRID_ORIGIN] = geo.ORIGIN_UL
+
+			grid := geo.NewTileGrid(conf)
+
+			ps := [2]float64{grid.Resolutions[13], grid.Resolutions[16]}
+			p.pixelSize = &ps
+		}
 		p.bounds = p.convexHull.Rect()
+
+		width, height = int((p.bounds.Max[0]-p.bounds.Min[0])/p.pixelSize[0]), int((p.bounds.Max[1]-p.bounds.Min[1])/p.pixelSize[1])
 	}
 	grid := CaclulateGrid(width, height, geo.NewGeoReference(p.bounds, epsg4326))
 	return grid
 }
 
-func (p *Interpolation) resample(grid *Grid) error {
+func (p *KrigingInterpolator) resample(grid *Grid) error {
 	if p.background == nil {
 		for i := range grid.Coordinates {
 			if p.convexHull.InHull(vec3d.Zero, ZERO(), vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}) {
@@ -298,7 +344,7 @@ func (p *Interpolation) resample(grid *Grid) error {
 	return nil
 }
 
-func (p *Interpolation) convertHeight() {
+func (p *KrigingInterpolator) convertHeight() {
 	if (p.heightModel == geoid.HAE && p.heightOffset == 0) || p.heightModel == geoid.UNKNOWN {
 		return
 	}
@@ -338,13 +384,25 @@ const (
 	NO_DATA_OUT = 0
 )
 
-func (s *Interpolation) getBackgroundElevation(x, y int) float64 {
+func (s *KrigingInterpolator) getBackgroundElevation(x, y int) float64 {
 	data := s.background.Data[0].([]float64)
 	si := s.background.GetSize(0)
+	if x >= int(si[0]) {
+		x = int(si[0] - 1)
+	}
+	if x < 0 {
+		x = 0
+	}
+	if y >= int(si[1]) {
+		y = int(si[1] - 1)
+	}
+	if y < 0 {
+		y = 0
+	}
 	return data[y*int(si[0])+x]
 }
 
-func (s *Interpolation) GetElevation(lon, lat float64, georef *geo.GeoReference, interpolator Interpolator) float64 {
+func (s *KrigingInterpolator) GetElevation(lon, lat float64, georef *geo.GeoReference, interpolator Interpolator) float64 {
 	heightValue := 0.0
 
 	si := s.background.GetSize(0)
@@ -354,7 +412,7 @@ func (s *Interpolation) GetElevation(lon, lat float64, georef *geo.GeoReference,
 	dataEndLat := georef.GetOrigin()[1] + float64(s.pixelSize[1])*float64(si[1])
 
 	if float64(s.pixelSize[1]) > 0 {
-		yPixel = ((dataEndLat-lat)/float64(s.pixelSize[1]) - 1)
+		yPixel = ((dataEndLat - lat) / float64(s.pixelSize[1]))
 	} else {
 		yPixel = (lat - dataEndLat) / float64(s.pixelSize[1])
 	}

@@ -1,6 +1,11 @@
 package kriging
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+
+	"github.com/flywave/go-geom/general"
 	vec3d "github.com/flywave/go3d/float64/vec3"
 )
 
@@ -13,3 +18,46 @@ var (
 		{117.98106280242764, 31.981062802427637, 31.062802427638776},
 	}
 )
+
+func ExampleVariogram_Contour_Exponential() {
+	ordinaryKriging := New(pos)
+	ordinaryKriging.Train(Exponential, 0, 100)
+	contourRectangle := ordinaryKriging.Contour(200, 200)
+	fmt.Printf("%#v", contourRectangle.Contour[:10])
+	// Output:
+	// []float64{31.062802427639, 31.67443506838088, 32.27805611994289, 32.87380457354172, 33.461820447530236, 34.042244827188064, 34.61521990152406, 35.18088899653797, 35.73939660436969, 36.29088840795865}
+
+}
+
+func ExampleVariogram() {
+	f, _ := os.Open("./test.json")
+
+	json, _ := ioutil.ReadAll(f)
+
+	fcs, _ := general.UnmarshalFeatureCollection(json)
+
+	opts := Options{
+		Input:  fcs,
+		Output: "./out.tif",
+	}
+
+	ker := NewKrigingInterpolator(opts)
+
+	npos := ker.extractPosion()
+
+	min, max, _ := MinMaxVec3(npos)
+
+	vg := NewVoxelGrid(vec3d.T{(max[0] - min[0]) / 500, (max[1] - min[1]) / 500, (max[2] - min[2]) / 30})
+
+	npos1, _ := vg.Filter(npos)
+
+	//npos1 = append(npos1, npos[len(npos1)-1])
+
+	ordinaryKriging := New(npos1)
+	ordinaryKriging.Train(Exponential, 0, 100)
+	contourRectangle := ordinaryKriging.Contour(200, 200)
+	fmt.Printf("%#v", contourRectangle.Contour[:10])
+	// Output:
+	// []float64{31.062802427639, 31.67443506838088, 32.27805611994289, 32.87380457354172, 33.461820447530236, 34.042244827188064, 34.61521990152406, 35.18088899653797, 35.73939660436969, 36.29088840795865}
+
+}

@@ -59,7 +59,6 @@ func (c *Convex) Edges() []Edge {
 				normal})
 		}
 	}
-
 	return c.edges
 }
 

@@ -2,6 +2,8 @@ package kriging
 
 import (
 	"math"
+
+	vec3d "github.com/flywave/go3d/float64/vec3"
 )
 
 func degToRad(angle float64) float64 {
@@ -12,17 +14,24 @@ func radToDeg(angle float64) float64 {
 	return angle * 180 / math.Pi
 }
 
-func exp(x float64) float64 {
-	if x == 0 {
-		return 1
+func minFloat64(t []vec3d.T, k int) float64 {
+	min := float64(0)
+	for i := 0; i < len(t); i++ {
+		if min == 0 || min > t[i][k] {
+			min = t[i][k]
+		}
 	}
-	return math.Exp(x)
+
+	return min
 }
 
-func pow2(x float64) float64 {
-	return x * x
-}
+func maxFloat64(t []vec3d.T, k int) float64 {
+	max := float64(0)
+	for i := 0; i < len(t); i++ {
+		if max < t[i][k] {
+			max = t[i][k]
+		}
+	}
 
-func pow3(x float64) float64 {
-	return x * x * x
+	return max
 }

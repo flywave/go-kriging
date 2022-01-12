@@ -23,3 +23,14 @@ func (t DistanceList) Swap(i, j int) {
 	t[i] = t[j]
 	t[j] = tmp
 }
+
+type ContourRectangle struct {
+	Contour     []float64  `json:"contour"`
+	XWidth      int        `json:"xWidth"`
+	YWidth      int        `json:"yWidth"`
+	Xlim        [2]float64 `json:"xLim"`
+	Ylim        [2]float64 `json:"yLim"`
+	Zlim        [2]float64 `json:"zLim"`
+	XResolution float64    `json:"xResolution"`
+	YResolution float64    `json:"yResolution"`
+}

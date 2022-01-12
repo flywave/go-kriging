@@ -106,7 +106,7 @@ func (h *Grid) GetDate() ([]float64, [2]uint32, vec2d.Rect, geo.Proj) {
 
 	for x := 0; x < col; x++ {
 		for y := 0; y < row; y++ {
-			tiledata[y*h.Width+x] = h.Value(y, x)
+			tiledata[y*col+x] = h.Value(y, x)
 		}
 	}
 
