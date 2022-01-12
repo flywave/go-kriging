@@ -16,12 +16,12 @@ type voxel struct {
 	index int
 }
 
-func NewVoxelGrid(leafSize vec3d.T) *voxelGrid {
+func newVoxelGrid(leafSize vec3d.T) *voxelGrid {
 	vg := &voxelGrid{LeafSize: leafSize}
 	return vg
 }
 
-func MinMaxVec3(ra []vec3d.T) (vec3d.T, vec3d.T, error) {
+func minMaxVec3(ra []vec3d.T) (vec3d.T, vec3d.T, error) {
 	if len(ra) == 0 {
 		return vec3d.T{}, vec3d.T{}, errors.New("no point")
 	}
@@ -48,7 +48,7 @@ func MulFloat(vec *vec3d.T, v float64) *vec3d.T {
 }
 
 func (f *voxelGrid) Filter(pc []vec3d.T) ([]vec3d.T, error) {
-	min, max, err := MinMaxVec3(pc)
+	min, max, err := minMaxVec3(pc)
 	if err != nil {
 		return nil, err
 	}

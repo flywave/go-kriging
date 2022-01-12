@@ -11,7 +11,7 @@ type Rotator struct {
 	Degrees float64
 }
 
-func ZERO() Rotator {
+func zRotator() Rotator {
 	return Rotator{0}
 }
 

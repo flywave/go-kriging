@@ -10,10 +10,6 @@ func degToRad(angle float64) float64 {
 	return angle * math.Pi / 180
 }
 
-func radToDeg(angle float64) float64 {
-	return angle * 180 / math.Pi
-}
-
 func minFloat64(t []vec3d.T, k int) float64 {
 	min := float64(0)
 	for i := 0; i < len(t); i++ {

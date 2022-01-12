@@ -27,6 +27,7 @@ const (
 )
 
 var epsg4326 geo.Proj
+var default_filter_size = [3]uint32{1024, 1024, 512}
 
 func init() {
 	epsg4326 = geo.NewProj(4326)
@@ -134,7 +135,7 @@ func NewKrigingInterpolator(opts Options) *KrigingInterpolator {
 	if opts.FilterSize != nil {
 		inter.filterSize = *opts.FilterSize
 	} else {
-		inter.filterSize = [3]uint32{1024, 1024, 512}
+		inter.filterSize = default_filter_size
 	}
 
 	return inter
@@ -218,9 +219,13 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 }
 
 func (p *KrigingInterpolator) filter(inputPos []vec3d.T) ([]vec3d.T, error) {
-	min, max, _ := MinMaxVec3(inputPos)
+	min, max, _ := minMaxVec3(inputPos)
 
-	vg := NewVoxelGrid(vec3d.T{(max[0] - min[0]) / float64(p.filterSize[0]), (max[1] - min[1]) / float64(p.filterSize[1]), (max[2] - min[2]) / float64(p.filterSize[2])})
+	vg := newVoxelGrid(vec3d.T{
+		(max[0] - min[0]) / float64(p.filterSize[0]),
+		(max[1] - min[1]) / float64(p.filterSize[1]),
+		(max[2] - min[2]) / float64(p.filterSize[2]),
+	})
 
 	res, err := vg.Filter(inputPos)
 
@@ -316,7 +321,7 @@ func (p *KrigingInterpolator) cacleGrid() *Grid {
 func (p *KrigingInterpolator) resample(grid *Grid) error {
 	if p.background == nil {
 		for i := range grid.Coordinates {
-			if p.convexHull.InHull(vec3d.Zero, ZERO(), vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}) {
+			if p.convexHull.InHull(vec3d.Zero, zRotator(), vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}) {
 				grid.Coordinates[i][2] = p.kriging.Predict(grid.Coordinates[i][0], grid.Coordinates[i][1])
 			} else {
 				grid.Coordinates[i][2] = default_no_data
@@ -334,7 +339,7 @@ func (p *KrigingInterpolator) resample(grid *Grid) error {
 		georef := geo.NewGeoReference(p.bounds, epsg4326)
 
 		for i := range grid.Coordinates {
-			if p.convexHull.InHull(vec3d.Zero, ZERO(), vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}) {
+			if p.convexHull.InHull(vec3d.Zero, zRotator(), vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}) {
 				grid.Coordinates[i][2] = p.kriging.Predict(grid.Coordinates[i][0], grid.Coordinates[i][1])
 			} else {
 				grid.Coordinates[i][2] = p.GetElevation(grid.Coordinates[i][0], grid.Coordinates[i][1], georef, interpolator)

@@ -54,8 +54,8 @@ func TestInHull(t *testing.T) {
 
 	c := NewConvex(vertices)
 
-	a.True(c.InHull(vec3d.Zero, ZERO(), vec2d.T{50, 50}))
-	a.False(c.InHull(vec3d.Zero, ZERO(), vec2d.T{50, -50}))
+	a.True(c.InHull(vec3d.Zero, zRotator(), vec2d.T{50, 50}))
+	a.False(c.InHull(vec3d.Zero, zRotator(), vec2d.T{50, -50}))
 }
 
 func TestSupport(t *testing.T) {
@@ -68,5 +68,5 @@ func TestSupport(t *testing.T) {
 			{0, 100, 0},
 			{100, 100, 0}})
 
-	a.Equal(c.Support(vec2d.T{1, 1}, ZERO()), vec2d.T{100, 100})
+	a.Equal(c.Support(vec2d.T{1, 1}, zRotator()), vec2d.T{100, 100})
 }
