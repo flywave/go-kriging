@@ -264,7 +264,7 @@ func (p *KrigingInterpolator) Process() error {
 
 	src := cog.NewSource(tiledata, &rect, cog.CTLZW)
 
-	return cog.WriteTile(p.output, src, bbox, srs, si, nil)
+	return cog.WriteTile(p.output, src, bbox, srs, si, &p.nodata)
 }
 
 func (p *KrigingInterpolator) computeConvexHull() []vec2d.T {

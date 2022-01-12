@@ -8,6 +8,31 @@ import (
 	"github.com/flywave/go-geom/general"
 )
 
+func TestInterpolator1(t *testing.T) {
+
+	f, _ := os.Open("./test.json")
+
+	json, _ := ioutil.ReadAll(f)
+
+	fcs, _ := general.UnmarshalFeatureCollection(json)
+	m := ModelType("spherical")
+
+	opts := Options{
+		Input:  fcs,
+		Output: "./out1.tif",
+		Model:  &m,
+	}
+
+	ker := NewKrigingInterpolator(opts)
+
+	err := ker.Process()
+
+	if err != nil {
+		t.FailNow()
+	}
+
+}
+
 func TestInterpolator(t *testing.T) {
 
 	f, _ := os.Open("./test.json")
@@ -21,7 +46,7 @@ func TestInterpolator(t *testing.T) {
 
 	opts := Options{
 		Input:      fcs,
-		Output:     "./out.tif",
+		Output:     "./out2.tif",
 		Model:      &m,
 		Background: &bg,
 	}
