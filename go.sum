@@ -11,12 +11,6 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/devork/geom v0.0.5/go.mod h1:8Wn8UNIJlX3waA51IiE8NHPWm1JFITeKJfxmYcK+hYg=
 github.com/flywave/freetype v0.0.0-20200612054648-f2aab071ba59/go.mod h1:r29LELyH+xbhmZzB6b+fi/LyejOZEr3U1n3oMSam6Kg=
-github.com/flywave/go-cog v0.0.0-20220108144024-d29603869a83 h1:WIjWMO08TNNuqJlscNm7fetGNIPUt1SC8DjqcjnSL2I=
-github.com/flywave/go-cog v0.0.0-20220108144024-d29603869a83/go.mod h1:HFGxELqo3hfCLdPMd6NAeFEFvyIwScLkConxWG4Lbx8=
-github.com/flywave/go-cog v0.0.0-20220112004417-a53d9ab1454b h1:l2lK8veGHxIr7bfUQXQOQl+8WaKlDwXMDviTATmxCdk=
-github.com/flywave/go-cog v0.0.0-20220112004417-a53d9ab1454b/go.mod h1:HFGxELqo3hfCLdPMd6NAeFEFvyIwScLkConxWG4Lbx8=
-github.com/flywave/go-cog v0.0.0-20220112114504-84eda3ae487e h1:EZfHJT+EID5sX+j1PFcS19lkaMDcvk2BLcjA1H5BqAE=
-github.com/flywave/go-cog v0.0.0-20220112114504-84eda3ae487e/go.mod h1:HFGxELqo3hfCLdPMd6NAeFEFvyIwScLkConxWG4Lbx8=
 github.com/flywave/go-cog v0.0.0-20220112120006-78cab6958e4d h1:MEYCzZrei+vErRErJP3wjpqxyxtiJ02/5tt4PWqbAqI=
 github.com/flywave/go-cog v0.0.0-20220112120006-78cab6958e4d/go.mod h1:HFGxELqo3hfCLdPMd6NAeFEFvyIwScLkConxWG4Lbx8=
 github.com/flywave/go-geo v0.0.0-20211222073119-5fae1ce6a5c5 h1:dx3LuAfbZOMU8y/NedU7nmnJw0rl1oKNdGO37vWfX7g=
