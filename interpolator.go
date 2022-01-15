@@ -235,13 +235,13 @@ func (p *KrigingInterpolator) filter(inputPos []vec3d.T) ([]vec3d.T, error) {
 	return res, nil
 }
 
-func (p *KrigingInterpolator) Process() error {
+func (p *KrigingInterpolator) Process() (vec2d.Rect, geo.Proj, error) {
 	pos := p.extractPosion()
 
 	pos, err := p.filter(pos)
 
 	if err != nil {
-		return err
+		return vec2d.Rect{}, nil, err
 	}
 
 	p.inputPos = pos
@@ -253,7 +253,7 @@ func (p *KrigingInterpolator) Process() error {
 	grid := p.cacleGrid()
 
 	if grid == nil {
-		return errors.New("gen grid error")
+		return vec2d.Rect{}, nil, errors.New("gen grid error")
 	}
 
 	p.resample(grid)
@@ -264,7 +264,7 @@ func (p *KrigingInterpolator) Process() error {
 
 	src := cog.NewSource(tiledata, &rect, cog.CTLZW)
 
-	return cog.WriteTile(p.output, src, bbox, srs, si, &p.nodata)
+	return bbox, srs, cog.WriteTile(p.output, src, bbox, srs, si, &p.nodata)
 }
 
 func (p *KrigingInterpolator) computeConvexHull() []vec2d.T {
