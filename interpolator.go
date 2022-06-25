@@ -155,7 +155,25 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 			} else {
 				ret = append(ret, vec3d.T{g.X(), g.Y(), g.Data()[2]})
 			}
+		case *general.Point3:
+			if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
+				pos2 := []vec2d.T{{g.X(), g.Y()}}
+				pos2 = p.inputProj.TransformTo(epsg4326, pos2)
+				ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], g.Data()[2]})
+			} else {
+				ret = append(ret, vec3d.T{g.X(), g.Y(), g.Data()[2]})
+			}
 		case *general.MultiPoint:
+			for _, pos := range g.Points() {
+				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
+					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
+					pos2 = p.inputProj.TransformTo(epsg4326, pos2)
+					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+				} else {
+					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+				}
+			}
+		case *general.MultiPoint3:
 			for _, pos := range g.Points() {
 				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
@@ -175,7 +193,29 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
 				}
 			}
+		case *general.LineString3:
+			for _, pos := range g.Subpoints() {
+				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
+					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
+					pos2 = p.inputProj.TransformTo(epsg4326, pos2)
+					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+				} else {
+					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+				}
+			}
 		case *general.MultiLine:
+			for _, li := range g.Lines() {
+				for _, pos := range li.Subpoints() {
+					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
+						pos2 := []vec2d.T{{pos.X(), pos.Y()}}
+						pos2 = p.inputProj.TransformTo(epsg4326, pos2)
+						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+					} else {
+						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+					}
+				}
+			}
+		case *general.MultiLine3:
 			for _, li := range g.Lines() {
 				for _, pos := range li.Subpoints() {
 					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
@@ -199,7 +239,33 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 					}
 				}
 			}
+		case *general.Polygon3:
+			for _, sli := range g.Sublines() {
+				for _, pos := range sli.Subpoints() {
+					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
+						pos2 := []vec2d.T{{pos.X(), pos.Y()}}
+						pos2 = p.inputProj.TransformTo(epsg4326, pos2)
+						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+					} else {
+						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+					}
+				}
+			}
 		case *general.MultiPolygon:
+			for _, poly := range g.Polygons() {
+				for _, sli := range poly.Sublines() {
+					for _, pos := range sli.Subpoints() {
+						if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
+							pos2 := []vec2d.T{{pos.X(), pos.Y()}}
+							pos2 = p.inputProj.TransformTo(epsg4326, pos2)
+							ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+						} else {
+							ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+						}
+					}
+				}
+			}
+		case *general.MultiPolygon3:
 			for _, poly := range g.Polygons() {
 				for _, sli := range poly.Sublines() {
 					for _, pos := range sli.Subpoints() {
