@@ -25,7 +25,7 @@ func TestInterpolator1(t *testing.T) {
 
 	ker := NewKrigingInterpolator(opts)
 
-	err := ker.Process()
+	_, _, err := ker.Process()
 
 	if err != nil {
 		t.FailNow()
@@ -53,7 +53,7 @@ func TestInterpolator(t *testing.T) {
 
 	ker := NewKrigingInterpolator(opts)
 
-	err := ker.Process()
+	_, _, err := ker.Process()
 
 	if err != nil {
 		t.FailNow()
