@@ -21,7 +21,11 @@ func matrixMultiply(X, Y []float64, n, m, p int) []float64 {
 		for j := 0; j < p; j++ {
 			Z[i*p+j] = 0
 			for k := 0; k < m; k++ {
-				Z[i*p+j] += X[i*m+k] * Y[k*p+j]
+				x := X[i*m+k]
+				if x == 0 {
+					x = 1.0 / float64(m)
+				}
+				Z[i*p+j] += x * Y[k*p+j]
 			}
 		}
 	}
