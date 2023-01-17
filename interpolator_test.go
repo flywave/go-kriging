@@ -35,7 +35,7 @@ func TestInterpolator1(t *testing.T) {
 
 func TestInterpolator(t *testing.T) {
 
-	f, _ := os.Open("./test.json")
+	f, _ := os.Open("./02.geojson")
 
 	json, _ := ioutil.ReadAll(f)
 
