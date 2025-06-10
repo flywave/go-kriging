@@ -1,17 +1,32 @@
 module github.com/flywave/go-kriging
 
-go 1.15
+go 1.23.0
+
+toolchain go1.24.2
 
 require (
-	github.com/flywave/go-cog v0.0.0-20220209090615-63c2af73d539
-	github.com/flywave/go-geo v0.0.0-20220531064105-297f1c5a11dc
-	github.com/flywave/go-geoid v0.0.0-20220306024153-21126c4758a2
-	github.com/flywave/go-geom v0.0.0-20220702005321-ed83d8c42c0b
-	github.com/flywave/go-geos v0.0.0-20220312005430-b3e54ee96ed7 // indirect
-	github.com/flywave/go-proj v0.0.0-20220711031457-21eef16de10a // indirect
-	github.com/flywave/go3d v0.0.0-20220728100441-e65a6f6f7288
-	github.com/stretchr/testify v1.7.0
-	golang.org/x/exp v0.0.0-20191030013958-a1ab85dbe136 // indirect
-	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539 // indirect
+	github.com/flywave/go-cog v0.0.0-20250607133043-41acd04eb904
+	github.com/flywave/go-geo v0.0.0-20250607132733-46bd30e585ce
+	github.com/flywave/go-geoid v0.0.0-20210705014121-cd8f70cb88bb
+	github.com/flywave/go-geom v0.0.0-20250607125323-f685bf20f12c
+	github.com/flywave/go3d v0.0.0-20250314015505-bf0fda02e242
+	github.com/stretchr/testify v1.10.0
 	gonum.org/v1/gonum v0.8.2
 )
+
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/flywave/go-geos v0.0.0-20250607125930-047054a9f657 // indirect
+	github.com/flywave/go-proj v0.0.0-20250607132305-d70d32f5ad2d // indirect
+	github.com/google/tiff v0.0.0-20161109161721-4b31f3041d9a // indirect
+	github.com/hhrutter/lzw v1.0.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/exp v0.0.0-20191030013958-a1ab85dbe136 // indirect
+	golang.org/x/image v0.28.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
+
+replace github.com/flywave/go-geos => ../go-geos
+
+replace github.com/flywave/go-geoid => ../go-geoid
