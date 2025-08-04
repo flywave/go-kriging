@@ -136,8 +136,8 @@ func (kri *Kriging) Train(model ModelType, sigma2 float64, alpha float64) (*Krig
 	n = l
 	kri.rangex = lag[n-1] - lag[0]
 	X := make([]float64, 2*n)
-	for i := 0; i < len(X); i++ {
-		X[i] = 1
+	for ii := 0; ii < len(X); ii++ {
+		X[ii] = 1
 	}
 	Y := make([]float64, n)
 	var A = kri.A

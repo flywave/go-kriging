@@ -160,9 +160,7 @@ func Cross(lhs, rhs vec2d.T) float64 {
 func (c *Convex) getDistanceIndicator(point vec3d.T, start, end vec2d.T) float64 {
 	point2d := vec2d.T{point[0], point[1]}
 	vLine := vec2d.Sub(&end, &start)
-
 	vPoint := vec2d.Sub(&point2d, &start)
-
 	return Cross(vLine, vPoint)
 }
 
@@ -174,6 +172,5 @@ func (c *Convex) getFarthestPoint(pointDistanceIndicatorMap map[vec3d.T]float64)
 			farthestPoint = vec2d.T{point[0], point[1]}
 		}
 	}
-
 	return farthestPoint
 }
