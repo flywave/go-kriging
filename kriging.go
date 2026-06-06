@@ -242,9 +242,9 @@ func (kri *Kriging) Contour(xWidth, yWidth int) *ContourRectangle {
 	var xTarget, yTarget float64
 
 	for j := 0; j < yWidth; j++ {
-		yTarget = ylim[0] + float64(j)*gridW
+		yTarget = ylim[0] + float64(j)*gridH
 		for k := 0; k < xWidth; k++ {
-			xTarget = xlim[0] + float64(k)*gridH
+			xTarget = xlim[0] + float64(k)*gridW
 			contour = append(contour, kri.Predict(xTarget, yTarget))
 		}
 	}

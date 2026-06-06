@@ -62,17 +62,16 @@ func (f *voxelGrid) Filter(pc []vec3d.T) ([]vec3d.T, error) {
 	voxels := make([]voxel, (xs+1)*(ys+1)*(zs+1))
 
 	var n int
-	for i := range pc {
-		p := pc[i].Sub(&min)
+	for idx := range pc {
+		p := pc[idx].Sub(&min)
 		x, y, z := int(p[0]/f.LeafSize[0]), int(p[1]/f.LeafSize[1]), int(p[2]/f.LeafSize[2])
 		v := &voxels[x+xs*(y+ys*z)]
 		if v.num == 0 {
-			v.index = i
+			v.index = idx
 			n++
 		}
 		v.num++
 		v.sum.Add(p)
-		i++
 	}
 
 	newPc := make([]vec3d.T, 0, len(pc))

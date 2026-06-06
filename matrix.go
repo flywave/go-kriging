@@ -21,11 +21,7 @@ func matrixMultiply(X, Y []float64, n, m, p int) []float64 {
 		for j := 0; j < p; j++ {
 			Z[i*p+j] = 0
 			for k := 0; k < m; k++ {
-				x := X[i*m+k]
-				if x == 0 {
-					x = 1.0 / float64(m)
-				}
-				Z[i*p+j] += x * Y[k*p+j]
+				Z[i*p+j] += X[i*m+k] * Y[k*p+j]
 			}
 		}
 	}
@@ -69,8 +65,8 @@ func matrixChol(X []float64, n int) bool {
 		for j := i + 1; j < n; j++ {
 			for k := 0; k < i; k++ {
 				X[j*n+i] -= X[j*n+k] * X[i*n+k]
-				X[j*n+i] /= p[i]
 			}
+			X[j*n+i] /= p[i]
 		}
 	}
 

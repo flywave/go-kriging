@@ -42,7 +42,7 @@ func TestInterpolator(t *testing.T) {
 	fcs, _ := general.UnmarshalFeatureCollection(json)
 	m := ModelType("spherical")
 
-	bg := "./biguiyuan.tif"
+	bg := "./test.tif"
 
 	opts := Options{
 		Input:      fcs,

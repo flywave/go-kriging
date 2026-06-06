@@ -11,9 +11,12 @@ func degToRad(angle float64) float64 {
 }
 
 func minFloat64(t []vec3d.T, k int) float64 {
-	min := float64(0)
-	for i := 0; i < len(t); i++ {
-		if min == 0 || min > t[i][k] {
+	if len(t) == 0 {
+		return 0
+	}
+	min := t[0][k]
+	for i := 1; i < len(t); i++ {
+		if t[i][k] < min {
 			min = t[i][k]
 		}
 	}
@@ -22,9 +25,12 @@ func minFloat64(t []vec3d.T, k int) float64 {
 }
 
 func maxFloat64(t []vec3d.T, k int) float64 {
-	max := float64(0)
-	for i := 0; i < len(t); i++ {
-		if max < t[i][k] {
+	if len(t) == 0 {
+		return 0
+	}
+	max := t[0][k]
+	for i := 1; i < len(t); i++ {
+		if t[i][k] > max {
 			max = t[i][k]
 		}
 	}

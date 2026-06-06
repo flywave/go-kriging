@@ -7,6 +7,8 @@ import (
 	vec3d "github.com/flywave/go3d/float64/vec3"
 )
 
+const quickHullEpsilon = 1e-12
+
 type Convex struct {
 	vertices []vec3d.T
 	hull     []vec2d.T
@@ -80,21 +82,34 @@ func (c *Convex) Support(dir vec2d.T, rot Rotator) (bestVertex vec2d.T) {
 }
 
 func (c *Convex) quickHull(points []vec3d.T, start, end vec2d.T) []vec2d.T {
+	return c.quickHullDepth(points, start, end, 0)
+}
+
+func (c *Convex) quickHullDepth(points []vec3d.T, start, end vec2d.T, depth int) []vec2d.T {
+	if depth > len(c.vertices) {
+		return []vec2d.T{end}
+	}
+
 	pointDistanceIndicators := c.getLhsPointDistanceIndicatorMap(points, start, end)
 	if len(pointDistanceIndicators) == 0 {
 		return []vec2d.T{end}
 	}
 
-	farthestPoint := c.getFarthestPoint(pointDistanceIndicators)
+	farthestPoint, farthestDist := c.getFarthestPointWithDist(pointDistanceIndicators)
+	if farthestDist <= quickHullEpsilon {
+		return []vec2d.T{end}
+	}
 
-	newPoints := []vec3d.T{}
+	newPoints := make([]vec3d.T, 0, len(pointDistanceIndicators)-1)
 	for point := range pointDistanceIndicators {
-		newPoints = append(newPoints, point)
+		if point[0] != farthestPoint[0] || point[1] != farthestPoint[1] {
+			newPoints = append(newPoints, point)
+		}
 	}
 
 	return append(
-		c.quickHull(newPoints, farthestPoint, end),
-		c.quickHull(newPoints, start, farthestPoint)...)
+		c.quickHullDepth(newPoints, farthestPoint, end, depth+1),
+		c.quickHullDepth(newPoints, start, farthestPoint, depth+1)...)
 }
 
 func Subtract(lhs vec3d.T, rhs vec2d.T) vec2d.T {
@@ -145,7 +160,7 @@ func (c *Convex) getLhsPointDistanceIndicatorMap(points []vec3d.T, start, end ve
 
 	for _, point := range points {
 		distanceIndicator := c.getDistanceIndicator(point, start, end)
-		if distanceIndicator > 0 {
+		if distanceIndicator > quickHullEpsilon {
 			pointDistanceIndicatorMap[point] = distanceIndicator
 		}
 	}
@@ -164,13 +179,14 @@ func (c *Convex) getDistanceIndicator(point vec3d.T, start, end vec2d.T) float64
 	return Cross(vLine, vPoint)
 }
 
-func (c *Convex) getFarthestPoint(pointDistanceIndicatorMap map[vec3d.T]float64) (farthestPoint vec2d.T) {
-	maxDistanceIndicator := -math.MaxFloat64
-	for point, distanceIndicator := range pointDistanceIndicatorMap {
-		if maxDistanceIndicator < distanceIndicator {
-			maxDistanceIndicator = distanceIndicator
+func (c *Convex) getFarthestPointWithDist(pointDistanceIndicatorMap map[vec3d.T]float64) (vec2d.T, float64) {
+	maxDist := -math.MaxFloat64
+	var farthestPoint vec2d.T
+	for point, dist := range pointDistanceIndicatorMap {
+		if dist > maxDist {
+			maxDist = dist
 			farthestPoint = vec2d.T{point[0], point[1]}
 		}
 	}
-	return farthestPoint
+	return farthestPoint, maxDist
 }
