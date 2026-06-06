@@ -72,34 +72,36 @@ func (i *HyperbolicInterpolator) Interpolate(southWestHeight, southEastHeight, n
 }
 
 type KrigingInterpolator struct {
-	heightModel  geoid.VerticalDatum
-	heightOffset float64
-	pixelSize    *[2]float64
-	filterSize   [3]uint32
-	inputProj    geo.Proj
-	input        *geom.FeatureCollection
-	inputPos     []vec3d.T
-	model        ModelType
-	nodata       string
-	convexHull   *Convex
-	kriging      *Kriging
-	bounds       vec2d.Rect
-	output       string
-	background   *cog.Reader
-	interpolator string
+	heightModel     geoid.VerticalDatum
+	heightOffset    float64
+	pixelSize       *[2]float64
+	filterSize      [3]uint32
+	inputProj       geo.Proj
+	input           *geom.FeatureCollection
+	inputPos        []vec3d.T
+	model           ModelType
+	nodata          string
+	convexHull      *Convex
+	kriging         *Kriging
+	bounds          vec2d.Rect
+	output          string
+	background      *cog.Reader
+	interpolator    string
+	transitionWidth float64
 }
 
 type Options struct {
-	HeightModel  geoid.VerticalDatum
-	HeightOffset float64
-	PixelSize    *[2]float64
-	InputSrs     *string
-	Input        *geom.FeatureCollection
-	Output       string
-	Background   *string
-	Model        *ModelType
-	Interpolator *string
-	FilterSize   *[3]uint32
+	HeightModel     geoid.VerticalDatum
+	HeightOffset    float64
+	PixelSize       *[2]float64
+	InputSrs        *string
+	Input           *geom.FeatureCollection
+	Output          string
+	Background      *string
+	Model           *ModelType
+	Interpolator    *string
+	FilterSize      *[3]uint32
+	TransitionWidth *float64
 }
 
 func NewKrigingInterpolator(opts Options) *KrigingInterpolator {
@@ -136,6 +138,12 @@ func NewKrigingInterpolator(opts Options) *KrigingInterpolator {
 		inter.filterSize = *opts.FilterSize
 	} else {
 		inter.filterSize = default_filter_size
+	}
+
+	if opts.TransitionWidth != nil {
+		inter.transitionWidth = *opts.TransitionWidth
+	} else {
+		inter.transitionWidth = 20
 	}
 
 	return inter
@@ -384,6 +392,17 @@ func (p *KrigingInterpolator) cacleGrid() *Grid {
 	return grid
 }
 
+func smoothstep(edge0, edge1, x float64) float64 {
+	t := (x - edge0) / (edge1 - edge0)
+	if t <= 0 {
+		return 0
+	}
+	if t >= 1 {
+		return 1
+	}
+	return t * t * (3 - 2*t)
+}
+
 func (p *KrigingInterpolator) resample(grid *Grid) error {
 	if p.background == nil {
 		for i := range grid.Coordinates {
@@ -403,12 +422,22 @@ func (p *KrigingInterpolator) resample(grid *Grid) error {
 		}
 
 		georef := geo.NewGeoReference(p.bounds, epsg4326)
+		transitionWidth := math.Max(p.pixelSize[0], p.pixelSize[1]) * p.transitionWidth
 
 		for i := range grid.Coordinates {
-			if p.convexHull.InHull(vec3d.Zero, zRotator(), vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}) {
-				grid.Coordinates[i][2] = p.kriging.Predict(grid.Coordinates[i][0], grid.Coordinates[i][1])
+			pt := vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}
+			if p.convexHull.InHull(vec3d.Zero, zRotator(), pt) {
+				grid.Coordinates[i][2] = p.kriging.Predict(pt[0], pt[1])
 			} else {
-				grid.Coordinates[i][2] = p.GetElevation(grid.Coordinates[i][0], grid.Coordinates[i][1], georef, interpolator)
+				bgVal := p.GetElevation(pt[0], pt[1], georef, interpolator)
+				d := p.convexHull.DistToHull(pt)
+				if d > 0 && d < transitionWidth && bgVal != default_no_data {
+					krigingVal := p.kriging.Predict(pt[0], pt[1])
+					w := 1 - smoothstep(0, transitionWidth, d)
+					grid.Coordinates[i][2] = w*krigingVal + (1-w)*bgVal
+				} else {
+					grid.Coordinates[i][2] = bgVal
+				}
 			}
 		}
 	}

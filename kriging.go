@@ -3,9 +3,12 @@ package kriging
 import (
 	"errors"
 	"math"
+	"runtime"
 	"sort"
+	"sync"
 
 	vec3d "github.com/flywave/go3d/float64/vec3"
+	"gonum.org/v1/gonum/mat"
 )
 
 type Kriging struct {
@@ -20,7 +23,8 @@ type Kriging struct {
 	K []float64
 	M []float64
 
-	model KrigingModel
+	model     KrigingModel
+	modelType ModelType
 }
 
 func New(pos []vec3d.T) *Kriging {
@@ -55,6 +59,7 @@ func (kri *Kriging) Train(model ModelType, sigma2 float64, alpha float64) (*Krig
 	kri.A = float64(1) / float64(3)
 	kri.n = 0.0
 
+	kri.modelType = model
 	switch model {
 	case Gaussian:
 		kri.model = krigingKrigingGaussian
@@ -172,61 +177,108 @@ func (kri *Kriging) Train(model ModelType, sigma2 float64, alpha float64) (*Krig
 
 	n = len(kri.pos)
 	K := make([]float64, n*n)
-	for i = 0; i < n; i++ {
-		for j = 0; j < i; j++ {
-			K[i*n+j] = kri.model(
-				math.Pow(math.Pow(kri.pos[i][0]-kri.pos[j][0], 2)+
-					math.Pow(kri.pos[i][1]-kri.pos[j][1], 2), 0.5),
-				kri.nugget,
-				kri.rangex,
-				kri.sill,
-				kri.A)
-			K[j*n+i] = K[i*n+j]
+
+	numCPU := runtime.GOMAXPROCS(0)
+	var wg sync.WaitGroup
+	rowsPerWorker := (n + numCPU - 1) / numCPU
+	for wi := 0; wi < numCPU; wi++ {
+		start := wi * rowsPerWorker
+		end := start + rowsPerWorker
+		if end > n {
+			end = n
 		}
-		K[i*n+i] = kri.model(0, kri.nugget,
-			kri.rangex,
-			kri.sill,
-			kri.A)
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			nugget := kri.nugget
+			rangex := kri.rangex
+			sill := kri.sill
+			a := kri.A
+			model := kri.model
+			diag := model(0, nugget, rangex, sill, a)
+			for i := start; i < end; i++ {
+				xi, yi := kri.pos[i][0], kri.pos[i][1]
+				K[i*n+i] = diag
+				for j := 0; j < i; j++ {
+					dx := xi - kri.pos[j][0]
+					dy := yi - kri.pos[j][1]
+					h := math.Sqrt(dx*dx + dy*dy)
+					val := model(h, nugget, rangex, sill, a)
+					K[i*n+j] = val
+					K[j*n+i] = val
+				}
+			}
+		}(start, end)
 	}
+	wg.Wait()
 
-	var C = matrixAdd(K, matrixDiag(sigma2, n), n, n)
-	var cloneC = make([]float64, len(C))
-	copy(cloneC, C)
-	if matrixChol(C, n) {
-		matrixChol2inv(C, n)
-	} else {
-		matrixSolve(cloneC, n)
-		C = cloneC
-	}
+	C := matrixAdd(K, matrixDiag(sigma2, n), n, n)
 
-	K = C
 	t := make([]float64, n)
-
-	for i := range kri.pos {
-		t[i] = kri.pos[i][2]
+	for ii := range kri.pos {
+		t[ii] = kri.pos[ii][2]
 	}
 
-	var M = matrixMultiply(C, t, n, n, 1)
-	kri.K = K
-	kri.M = M
+	cMat := mat.NewSymDense(n, C)
+	var chol mat.Cholesky
+	if chol.Factorize(cMat) {
+		zVec := mat.NewVecDense(n, t)
+		var mVec mat.VecDense
+		if err := chol.SolveVecTo(&mVec, zVec); err == nil {
+			kri.M = mVec.RawVector().Data
+		}
+	} else {
+		matrixSolve(C, n)
+		kri.M = matrixMultiply(C, t, n, n, 1)
+	}
+	kri.K = nil
 
 	return kri, nil
 }
 
 func (kri *Kriging) Predict(x, y float64) float64 {
-	k := make([]float64, kri.n)
-	for i := 0; i < kri.n; i++ {
-		x_ := x - kri.pos[i][0]
-		y_ := y - kri.pos[i][1]
-		h := math.Pow(math.Pow(x_, 2)+math.Pow(y_, 2), 0.5)
-		k[i] = kri.model(
-			h,
-			kri.nugget, kri.rangex,
-			kri.sill, kri.A,
-		)
+	nugget := kri.nugget
+	rangex := kri.rangex
+	sill := kri.sill
+	a := kri.A
+	pos := kri.pos
+	M := kri.M
+	invRange := 1.0 / rangex
+	sillMinusNugget := (sill - nugget) * invRange
+
+	var result float64
+
+	switch kri.modelType {
+	case Gaussian:
+		for i := 0; i < kri.n; i++ {
+			dx := x - pos[i][0]
+			dy := y - pos[i][1]
+			h2 := (dx*dx + dy*dy) * invRange * invRange
+			result += (nugget + sillMinusNugget*(1.0-math.Exp(-(1.0/a)*h2))) * M[i]
+		}
+	case Exponential:
+		oneOverA := 1.0 / a
+		for i := 0; i < kri.n; i++ {
+			dx := x - pos[i][0]
+			dy := y - pos[i][1]
+			h := math.Sqrt(dx*dx+dy*dy) * invRange
+			result += (nugget + sillMinusNugget*(1.0-math.Exp(-oneOverA*h))) * M[i]
+		}
+	case Spherical:
+		for i := 0; i < kri.n; i++ {
+			dx := x - pos[i][0]
+			dy := y - pos[i][1]
+			h := math.Sqrt(dx*dx + dy*dy)
+			if h > rangex {
+				result += (nugget + sillMinusNugget) * M[i]
+			} else {
+				xr := h * invRange
+				result += (nugget + sillMinusNugget*(1.5*xr-0.5*xr*xr*xr)) * M[i]
+			}
+		}
 	}
 
-	return matrixMultiply(k, kri.M, 1, kri.n, 1)[0]
+	return result
 }
 
 func (kri *Kriging) Contour(xWidth, yWidth int) *ContourRectangle {

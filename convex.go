@@ -138,6 +138,51 @@ func (c *Convex) InHull(position vec3d.T, rotation Rotator, point vec2d.T) bool 
 	return true
 }
 
+// DistToHull returns the minimum Euclidean distance from point to any hull
+// edge segment. Returns 0 for interior/on-boundary points.
+func (c *Convex) DistToHull(point vec2d.T) float64 {
+	minDist := math.MaxFloat64
+	for _, edge := range c.Edges() {
+		d := pointToSegmentDist(point, edge.Start, edge.End)
+		if d > 0 && d < minDist {
+			minDist = d
+		}
+	}
+	if minDist == math.MaxFloat64 {
+		return 0
+	}
+	return minDist
+}
+
+func pointToSegmentDist(p, a, b vec2d.T) float64 {
+	// Vector from a to b
+	ab := vec2d.T{b[0] - a[0], b[1] - a[1]}
+	// Vector from a to p
+	ap := vec2d.T{p[0] - a[0], p[1] - a[1]}
+	// Projection parameter t = (ap·ab) / (ab·ab)
+	denom := ab[0]*ab[0] + ab[1]*ab[1]
+	if denom == 0 {
+		// a and b are the same point
+		dx := p[0] - a[0]
+		dy := p[1] - a[1]
+		return math.Sqrt(dx*dx + dy*dy)
+	}
+	t := (ap[0]*ab[0] + ap[1]*ab[1]) / denom
+	if t <= 0 {
+		dx := p[0] - a[0]
+		dy := p[1] - a[1]
+		return math.Sqrt(dx*dx + dy*dy)
+	}
+	if t >= 1 {
+		dx := p[0] - b[0]
+		dy := p[1] - b[1]
+		return math.Sqrt(dx*dx + dy*dy)
+	}
+	// Perpendicular distance
+	cross := ap[0]*ab[1] - ap[1]*ab[0]
+	return math.Abs(cross) / math.Sqrt(denom)
+}
+
 func (c *Convex) getExtremePoints() (minX, maxX vec2d.T) {
 	minX = vec2d.T{math.MaxFloat64, 0}
 	maxX = vec2d.T{-math.MaxFloat64, 0}
