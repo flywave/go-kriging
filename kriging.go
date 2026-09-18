@@ -2,6 +2,7 @@ package kriging
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"runtime"
 	"sort"
@@ -67,10 +68,17 @@ func (kri *Kriging) Train(model ModelType, sigma2 float64, alpha float64) (*Krig
 		kri.model = krigingKrigingExponential
 	case Spherical:
 		kri.model = krigingKrigingSpherical
+	default:
+		// 没有 default 时 kri.model 会保持 nil，下面并行构造 K 矩阵的
+		// worker goroutine 里调用 nil 函数会直接崩掉整个进程（不可恢复）
+		return nil, fmt.Errorf("unknown kriging model type: %q", model)
 	}
 
 	var i, j, k, l, n int
 	n = len(kri.pos)
+	if n < 3 {
+		return nil, fmt.Errorf("kriging needs at least 3 points, got %d", n)
+	}
 
 	distance := make([][2]float64, (n*n-n)/2)
 

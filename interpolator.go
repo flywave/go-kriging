@@ -88,6 +88,7 @@ type KrigingInterpolator struct {
 	background      *cog.Reader
 	interpolator    string
 	transitionWidth float64
+	progress        ProgressFunc
 }
 
 type Options struct {
@@ -102,7 +103,17 @@ type Options struct {
 	Interpolator    *string
 	FilterSize      *[3]uint32
 	TransitionWidth *float64
+	// Progress 逐像元重采样阶段的进度回调，part/total 为已处理/总像元数。
+	// 返回 false 表示调用方要求中止，Process 会返回 ErrAborted。
+	// 变差函数拟合与解算（Train）阶段无法汇报进度，也无法中断。
+	Progress ProgressFunc
 }
+
+// ProgressFunc 插值进度回调
+type ProgressFunc func(part, total uint64) bool
+
+// ErrAborted 进度回调要求中止时返回的错误
+var ErrAborted = errors.New("kriging interpolation aborted")
 
 func NewKrigingInterpolator(opts Options) *KrigingInterpolator {
 	inter := &KrigingInterpolator{
@@ -112,6 +123,7 @@ func NewKrigingInterpolator(opts Options) *KrigingInterpolator {
 		pixelSize:    opts.PixelSize,
 		output:       opts.Output,
 		nodata:       default_no_data_str,
+		progress:     opts.Progress,
 	}
 
 	if opts.InputSrs != nil {
@@ -159,26 +171,26 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 			if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 				pos2 := []vec2d.T{{g.X(), g.Y()}}
 				pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-				ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], g.Data()[2]})
+				ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(g.Data())})
 			} else {
-				ret = append(ret, vec3d.T{g.X(), g.Y(), g.Data()[2]})
+				ret = append(ret, vec3d.T{g.X(), g.Y(), ZOf(g.Data())})
 			}
 		case *general.Point3:
 			if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 				pos2 := []vec2d.T{{g.X(), g.Y()}}
 				pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-				ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], g.Data()[2]})
+				ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(g.Data())})
 			} else {
-				ret = append(ret, vec3d.T{g.X(), g.Y(), g.Data()[2]})
+				ret = append(ret, vec3d.T{g.X(), g.Y(), ZOf(g.Data())})
 			}
 		case *general.MultiPoint:
 			for _, pos := range g.Points() {
 				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 					pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 				} else {
-					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+					ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 				}
 			}
 		case *general.MultiPoint3:
@@ -186,9 +198,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 					pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 				} else {
-					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+					ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 				}
 			}
 		case *general.LineString:
@@ -196,9 +208,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 					pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 				} else {
-					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+					ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 				}
 			}
 		case *general.LineString3:
@@ -206,9 +218,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 				if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 					pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 					pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+					ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 				} else {
-					ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+					ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 				}
 			}
 		case *general.MultiLine:
@@ -217,9 +229,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 						pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 						pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 					} else {
-						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+						ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 					}
 				}
 			}
@@ -229,9 +241,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 						pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 						pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 					} else {
-						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+						ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 					}
 				}
 			}
@@ -241,9 +253,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 						pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 						pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 					} else {
-						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+						ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 					}
 				}
 			}
@@ -253,9 +265,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 					if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 						pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 						pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+						ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 					} else {
-						ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+						ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 					}
 				}
 			}
@@ -266,9 +278,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 						if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 							pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 							pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-							ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+							ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 						} else {
-							ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+							ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 						}
 					}
 				}
@@ -280,9 +292,9 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 						if p.inputProj != nil && !p.inputProj.Eq(epsg4326) {
 							pos2 := []vec2d.T{{pos.X(), pos.Y()}}
 							pos2 = p.inputProj.TransformTo(epsg4326, pos2)
-							ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], pos.Data()[2]})
+							ret = append(ret, vec3d.T{pos2[0][0], pos2[0][1], ZOf(pos.Data())})
 						} else {
-							ret = append(ret, vec3d.T{pos.X(), pos.Y(), pos.Data()[2]})
+							ret = append(ret, vec3d.T{pos.X(), pos.Y(), ZOf(pos.Data())})
 						}
 					}
 				}
@@ -290,6 +302,15 @@ func (p *KrigingInterpolator) extractPosion() []vec3d.T {
 		}
 	}
 	return ret
+}
+
+// ZOf 取坐标的 Z 值。2D 坐标（只写了 x,y 的 GeoJSON）按 0 处理：
+// 早期实现直接下标取第三个元素，遇到 2D 点会 index out of range。
+func ZOf(data []float64) float64 {
+	if len(data) > 2 {
+		return data[2]
+	}
+	return 0
 }
 
 func (p *KrigingInterpolator) filter(inputPos []vec3d.T) ([]vec3d.T, error) {
@@ -330,7 +351,9 @@ func (p *KrigingInterpolator) Process() (vec2d.Rect, geo.Proj, error) {
 		return vec2d.Rect{}, nil, errors.New("gen grid error")
 	}
 
-	p.resample(grid)
+	if err := p.resample(grid); err != nil {
+		return vec2d.Rect{}, nil, err
+	}
 
 	tiledata, si, bbox, srs := grid.GetDate()
 
@@ -404,8 +427,15 @@ func smoothstep(edge0, edge1, x float64) float64 {
 }
 
 func (p *KrigingInterpolator) resample(grid *Grid) error {
+	// 逐像元预测是最耗时的阶段（每个像元 O(n)），也是唯一能汇报进度的阶段：
+	// 每处理约 1% 的像元回调一次，回调返回 false 立即中止
+	report := gridProgressReporter(p.progress, len(grid.Coordinates))
+
 	if p.background == nil {
 		for i := range grid.Coordinates {
+			if !report(i) {
+				return ErrAborted
+			}
 			if p.convexHull.InHull(vec3d.Zero, zRotator(), vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}) {
 				grid.Coordinates[i][2] = p.kriging.Predict(grid.Coordinates[i][0], grid.Coordinates[i][1])
 			} else {
@@ -425,6 +455,9 @@ func (p *KrigingInterpolator) resample(grid *Grid) error {
 		transitionWidth := math.Max(p.pixelSize[0], p.pixelSize[1]) * p.transitionWidth
 
 		for i := range grid.Coordinates {
+			if !report(i) {
+				return ErrAborted
+			}
 			pt := vec2d.T{grid.Coordinates[i][0], grid.Coordinates[i][1]}
 			if p.convexHull.InHull(vec3d.Zero, zRotator(), pt) {
 				grid.Coordinates[i][2] = p.kriging.Predict(pt[0], pt[1])
@@ -442,6 +475,26 @@ func (p *KrigingInterpolator) resample(grid *Grid) error {
 		}
 	}
 	return nil
+}
+
+// gridProgressReporter 按约 1% 的步长转发进度；progress 为 nil 时始终返回 true
+func gridProgressReporter(progress ProgressFunc, total int) func(int) bool {
+	if progress == nil {
+		return func(int) bool { return true }
+	}
+
+	t := uint64(total)
+	step := total / 100
+	if step < 1 {
+		step = 1
+	}
+
+	return func(i int) bool {
+		if i%step != 0 {
+			return true
+		}
+		return progress(uint64(i), t)
+	}
 }
 
 func (p *KrigingInterpolator) convertHeight() {

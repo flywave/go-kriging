@@ -47,6 +47,33 @@ func MulFloat(vec *vec3d.T, v float64) *vec3d.T {
 	return vec
 }
 
+// leafCount 返回某个轴上的体素层数。
+// 退化轴（该轴范围为 0，或 leafSize 非正）按单层处理：否则 size/leaf 会得到 NaN，
+// 而 int(NaN) 的结果是实现相关的（amd64 上为 INT_MIN），会让下面的体素索引越界 panic。
+// 扁平点集（所有点等高，即典型的“用 2D 点插值 Z”）必然走这条路。
+func leafCount(size, leaf float64) int {
+	if leaf <= 0 || size <= 0 {
+		return 0
+	}
+	return int(size / leaf)
+}
+
+// voxelIndex 计算某个点在某轴上的体素下标，并夹在 [0, maxIndex] 内，
+// 保证任何输入都不会算出越界下标
+func voxelIndex(v, leaf float64, maxIndex int) int {
+	if leaf <= 0 {
+		return 0
+	}
+	i := int(v / leaf)
+	if i < 0 {
+		return 0
+	}
+	if i > maxIndex {
+		return maxIndex
+	}
+	return i
+}
+
 func (f *voxelGrid) Filter(pc []vec3d.T) ([]vec3d.T, error) {
 	min, max, err := minMaxVec3(pc)
 	if err != nil {
@@ -54,17 +81,14 @@ func (f *voxelGrid) Filter(pc []vec3d.T) ([]vec3d.T, error) {
 	}
 
 	size := max.Sub(&min)
-	xs, ys := int(size[0]/f.LeafSize[0]), int(size[1]/f.LeafSize[1])
-	zs := 0
-	if f.LeafSize[2] > 0 {
-		zs = int(size[2] / f.LeafSize[2])
-	}
+	xs, ys := leafCount(size[0], f.LeafSize[0]), leafCount(size[1], f.LeafSize[1])
+	zs := leafCount(size[2], f.LeafSize[2])
 	voxels := make([]voxel, (xs+1)*(ys+1)*(zs+1))
 
 	var n int
 	for idx := range pc {
 		p := pc[idx].Sub(&min)
-		x, y, z := int(p[0]/f.LeafSize[0]), int(p[1]/f.LeafSize[1]), int(p[2]/f.LeafSize[2])
+		x, y, z := voxelIndex(p[0], f.LeafSize[0], xs), voxelIndex(p[1], f.LeafSize[1], ys), voxelIndex(p[2], f.LeafSize[2], zs)
 		v := &voxels[x+xs*(y+ys*z)]
 		if v.num == 0 {
 			v.index = idx
