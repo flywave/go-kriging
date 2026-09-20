@@ -343,7 +343,9 @@ func (p *KrigingInterpolator) Process() (vec2d.Rect, geo.Proj, error) {
 
 	p.convertHeight()
 	p.computeConvexHull()
-	p.computeKriging()
+	if err := p.computeKriging(); err != nil {
+		return vec2d.Rect{}, nil, err
+	}
 
 	grid := p.cacleGrid()
 
@@ -501,11 +503,14 @@ func (p *KrigingInterpolator) convertHeight() {
 	if (p.heightModel == geoid.HAE && p.heightOffset == 0) || p.heightModel == geoid.UNKNOWN {
 		return
 	}
+	var gid *geoid.Geoid
+	if p.heightModel != geoid.HAE {
+		gid = geoid.NewGeoid(p.heightModel, false)
+	}
 	for i := range p.inputPos {
 		if p.heightModel == geoid.HAE {
 			p.inputPos[i][2] += p.heightOffset
 		} else {
-			gid := geoid.NewGeoid(p.heightModel, false)
 			p.inputPos[i][2] = gid.ConvertHeight(p.inputPos[i][0], p.inputPos[i][1], p.inputPos[i][2], geoid.GEOIDTOELLIPSOID)
 		}
 	}

@@ -11,7 +11,7 @@ require (
 	github.com/flywave/go-geom v0.0.0-20250607125323-f685bf20f12c
 	github.com/flywave/go3d v0.0.0-20250314015505-bf0fda02e242
 	github.com/stretchr/testify v1.10.0
-	gonum.org/v1/gonum v0.8.2
+	gonum.org/v1/gonum v0.16.0
 )
 
 require (
@@ -22,7 +22,6 @@ require (
 	github.com/hhrutter/lzw v1.0.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/exp v0.0.0-20191030013958-a1ab85dbe136 // indirect
 	golang.org/x/image v0.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

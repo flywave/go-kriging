@@ -2,6 +2,7 @@ package kriging
 
 import (
 	"errors"
+	"sort"
 
 	vec3d "github.com/flywave/go3d/float64/vec3"
 )
@@ -9,6 +10,8 @@ import (
 type voxelGrid struct {
 	LeafSize vec3d.T
 }
+
+type voxelKey [3]int
 
 type voxel struct {
 	sum   vec3d.T
@@ -74,6 +77,10 @@ func voxelIndex(v, leaf float64, maxIndex int) int {
 	return i
 }
 
+// Filter 对点云做体素栅格降采样：每个体素输出一个点（多点体素取质心）。
+// 体素用稀疏 map 存储而不是稠密数组——默认 filterSize 1024×1024×512 的稠密
+// 预分配约 21.5 GB，三维数据必然 OOM。
+// 输出按体素下标排序，结果确定；不会修改调用方的输入切片。
 func (f *voxelGrid) Filter(pc []vec3d.T) ([]vec3d.T, error) {
 	min, max, err := minMaxVec3(pc)
 	if err != nil {
@@ -83,32 +90,50 @@ func (f *voxelGrid) Filter(pc []vec3d.T) ([]vec3d.T, error) {
 	size := max.Sub(&min)
 	xs, ys := leafCount(size[0], f.LeafSize[0]), leafCount(size[1], f.LeafSize[1])
 	zs := leafCount(size[2], f.LeafSize[2])
-	voxels := make([]voxel, (xs+1)*(ys+1)*(zs+1))
 
-	var n int
+	voxels := make(map[voxelKey]*voxel)
 	for idx := range pc {
-		p := pc[idx].Sub(&min)
-		x, y, z := voxelIndex(p[0], f.LeafSize[0], xs), voxelIndex(p[1], f.LeafSize[1], ys), voxelIndex(p[2], f.LeafSize[2], zs)
-		v := &voxels[x+xs*(y+ys*z)]
-		if v.num == 0 {
-			v.index = idx
-			n++
+		lx, ly, lz := pc[idx][0]-min[0], pc[idx][1]-min[1], pc[idx][2]-min[2]
+		key := voxelKey{
+			voxelIndex(lx, f.LeafSize[0], xs),
+			voxelIndex(ly, f.LeafSize[1], ys),
+			voxelIndex(lz, f.LeafSize[2], zs),
+		}
+		v, ok := voxels[key]
+		if !ok {
+			v = &voxel{index: idx}
+			voxels[key] = v
 		}
 		v.num++
-		v.sum.Add(p)
+		v.sum[0] += lx
+		v.sum[1] += ly
+		v.sum[2] += lz
 	}
 
-	newPc := make([]vec3d.T, 0, len(pc))
-	for i := range voxels {
-		v := &voxels[i]
-		if n := v.num; n > 0 {
-			if n > 1 {
-				f := MulFloat(&v.sum, 1.0/float64(n))
-				f.Add(&min)
-				newPc = append(newPc, *f)
-			} else {
-				newPc = append(newPc, *pc[v.index].Add(&min))
-			}
+	keys := make([]voxelKey, 0, len(voxels))
+	for k := range voxels {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		a, b := keys[i], keys[j]
+		if a[2] != b[2] {
+			return a[2] < b[2]
+		}
+		if a[1] != b[1] {
+			return a[1] < b[1]
+		}
+		return a[0] < b[0]
+	})
+
+	newPc := make([]vec3d.T, 0, len(keys))
+	for _, k := range keys {
+		v := voxels[k]
+		if v.num > 1 {
+			f := MulFloat(&v.sum, 1.0/float64(v.num))
+			f.Add(&min)
+			newPc = append(newPc, *f)
+		} else {
+			newPc = append(newPc, pc[v.index])
 		}
 	}
 
